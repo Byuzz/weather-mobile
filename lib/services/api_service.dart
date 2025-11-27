@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
   static const String baseUrl = 'https://ir64-iot.weathertech.tech';
+  
+  // Inisialisasi Secure Storage
+  static const _storage = FlutterSecureStorage();
   
   // Auth Methods
   static Future<Map<String, dynamic>> login(String username, String password) async {
@@ -17,9 +20,17 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['token'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('auth_token', data['token']);
-          await prefs.setString('user_data', jsonEncode(data['user']));
+          // Ganti SharedPreferences dengan Secure Storage
+          await _storage.write(key: 'auth_token', value: data['token']);
+          
+          // Simpan user data sebagai JSON String
+          if (data['user'] != null) {
+            await _storage.write(key: 'user_data', value: jsonEncode(data['user']));
+          }
+          
+          // Simpan status login untuk AuthProvider
+          await _storage.write(key: 'is_logged_in', value: 'true');
+          await _storage.write(key: 'username', value: username);
         }
         return data;
       } else {
@@ -51,17 +62,17 @@ class ApiService {
   }
   
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_data');
+    // Hapus semua data session dari Secure Storage
+    await _storage.deleteAll();
   }
   
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    // Baca token dari Secure Storage
+    return await _storage.read(key: 'auth_token');
   }
   
-  // Sensor Data Methods
+  // --- Sensor Data Methods (Tidak berubah, tapi siap untuk header token) ---
+  
   static Future<List<dynamic>> getLatestSensorData() async {
     try {
       final response = await http.get(
