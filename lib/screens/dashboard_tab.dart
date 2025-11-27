@@ -31,7 +31,7 @@ class _DashboardTabState extends State<DashboardTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success ? 'Fan turned $action successfully' : 'Failed to control fan',
+            success ? 'Fan set to $action' : 'Failed to control fan',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
@@ -40,7 +40,7 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   // ==========================================
-  // CHART LOGIC: Informatif & Interaktif
+  // 1. CHART LOGIC (REAL DATA)
   // ==========================================
   Widget _buildTrendChart(List<dynamic> trendData, String type) {
     if (trendData.isEmpty) {
@@ -68,7 +68,7 @@ class _DashboardTabState extends State<DashboardTab> {
       switch (type) {
         case 'temperature': value = displayData[i]['temp']?.toDouble() ?? 0.0; break;
         case 'humidity': value = displayData[i]['hum']?.toDouble() ?? 0.0; break;
-        case 'pressure': value = displayData[i]['pres']?.toDouble() ?? 0.0; break; // Added Pressure
+        case 'pressure': value = displayData[i]['pres']?.toDouble() ?? 0.0; break;
         case 'air_quality': value = displayData[i]['air_clean_perc']?.toDouble() ?? 0.0; break;
         case 'light': value = displayData[i]['lux']?.toDouble() ?? 0.0; break;
       }
@@ -216,7 +216,6 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // UPDATE: DROPDOWN MENU ITEM
   Widget _buildTrendAnalysisCard(List<dynamic> trendData, bool isOnline) {
     return Opacity(
       opacity: isOnline ? 1.0 : 0.6,
@@ -302,7 +301,9 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // UPDATE: FAN CONTROL WITH AUTO BUTTON
+  // ==========================================
+  // 2. FAN CONTROL (WITH AUTO)
+  // ==========================================
   Widget _buildFanControlCard(bool isOnline) {
     return Opacity(
       opacity: isOnline ? 1.0 : 0.6,
@@ -445,7 +446,12 @@ class _DashboardTabState extends State<DashboardTab> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildSystemStatusCard(isOnline),
+                    
+                    // ==========================================
+                    // 3. SYSTEM STATUS (REAL DATA)
+                    // ==========================================
+                    _buildSystemStatusCard(latestData, isOnline), // PASSING REAL DATA HERE
+                    
                     const SizedBox(height: 16),
                     _buildFanControlCard(isOnline),
                     const SizedBox(height: 20),
@@ -459,7 +465,7 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // --- Helper Widgets (Sama seperti sebelumnya) ---
+  // --- Helper Widgets ---
   Widget _buildHeader(bool isOnline) {
     final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
     String statusText = isOnline ? 'Online' : 'Offline';
@@ -561,7 +567,22 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  Widget _buildSystemStatusCard(bool isOnline) {
+  // ==========================================
+  // 4. SYSTEM STATUS (REAL DATA IMPLEMENTATION)
+  // ==========================================
+  Widget _buildSystemStatusCard(Map<String, dynamic>? data, bool isOnline) {
+    // 1. Ambil data asli jika online, jika tidak set '--'
+    String rtcTime = '--';
+    String dataCount = '--';
+
+    if (isOnline && data != null) {
+      // Coba ambil rtc_time, jika null ambil timestamp server, jika null lagi pakai string kosong
+      rtcTime = data['rtc_time']?.toString() ?? data['timestamp']?.toString() ?? '--';
+      
+      // Ambil ID data atau eeprom_count sebagai counter
+      dataCount = '#${data['id']?.toString() ?? data['eeprom_count']?.toString() ?? '--'}';
+    }
+
     return Opacity(
       opacity: isOnline ? 1.0 : 0.6,
       child: Container(
@@ -571,8 +592,8 @@ class _DashboardTabState extends State<DashboardTab> {
             const Text('Status System', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                _buildSystemInfo('RTC', isOnline ? '23/11/2025 11:21:21' : '--', isOnline),
-                _buildSystemInfo('Count', isOnline ? '#33633' : '--', isOnline),
+                _buildSystemInfo('RTC', rtcTime, isOnline), // Data Asli
+                _buildSystemInfo('Count', dataCount, isOnline), // Data Asli
                 _buildSystemInfo('Update', isOnline ? 'Online' : 'Offline', isOnline),
               ]),
           ]),
