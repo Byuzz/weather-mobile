@@ -89,7 +89,7 @@ class _HistoryTabState extends State<HistoryTab> {
                     
                     const SizedBox(height: 16),
                     
-                    // Detailed Data Logs dengan Pagination
+                    // Detailed Data Logs
                     _buildDataLogsCard(historyData, _currentPage, totalPages, totalLogs),
                     
                     const SizedBox(height: 20),
@@ -162,7 +162,6 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   Widget _buildTrendAnalysisCard(List<dynamic> historyData) {
-    // Ambil 10 data terbaru untuk trend analysis
     final trendData = historyData.take(10).toList();
     
     List<FlSpot> spots = [];
@@ -287,99 +286,55 @@ class _HistoryTabState extends State<HistoryTab> {
           ),
           const SizedBox(height: 12),
           
-          // Table Header
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Timestamp',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+          // Table Header + Data dengan Horizontal Scroll
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 700, 
+              child: Column(
+                children: [
+                  // Table Header
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(flex: 2, child: _HeaderCell('Timestamp')),
+                      Expanded(child: _HeaderCell('Temp (°C)')),
+                      Expanded(child: _HeaderCell('Hum (%)')),
+                      Expanded(child: _HeaderCell('Press (hPa)')),
+                      Expanded(child: _HeaderCell('Lux')),
+                      Expanded(child: _HeaderCell('Air (%)')),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 12),
+                  
+                  // Data Rows
+                  if (data.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'No data available',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: data.map<Widget>((log) => _buildDataLogRow(
+                        timestamp: log['timestamp']?.toString() ?? '--',
+                        temp: log['temp']?.toString() ?? '--',
+                        hum: log['hum']?.toString() ?? '--',
+                        press: log['pres']?.toString() ?? '--',
+                        lux: log['lux']?.toString() ?? '--',
+                        air: log['air_clean_perc']?.toString() ?? '--',
+                      )).toList(),
+                    ),
+                ],
               ),
-              Expanded(
-                child: Text(
-                  'Temp (°C)',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'Hum (%)',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'Press (hPa)',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'Lux',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'Air (%)',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white24),
-          const SizedBox(height: 12),
-          
-          // Data Rows
-          if (data.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text(
-                  'No data available',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            )
-          else
-            Column(
-              children: data.map<Widget>((log) => _buildDataLogRow(
-                timestamp: log['timestamp']?.toString() ?? '--',
-                temp: log['temp']?.toString() ?? '--',
-                hum: log['hum']?.toString() ?? '--',
-                press: log['pres']?.toString() ?? '--',
-                lux: log['lux']?.toString() ?? '--',
-                air: log['air_clean_perc']?.toString() ?? '--',
-              )).toList(),
             ),
+          ),
           
           const SizedBox(height: 16),
           const Divider(color: Colors.white24),
@@ -395,6 +350,7 @@ class _HistoryTabState extends State<HistoryTab> {
           // Data Labels
           const Wrap(
             spacing: 16,
+            runSpacing: 8,
             children: [
               _buildDataLabel('Aktivity', Colors.blue),
               _buildDataLabel('Sensitivity', Colors.green),
@@ -409,7 +365,35 @@ class _HistoryTabState extends State<HistoryTab> {
     );
   }
 
+  // =========================================================================
+  // FIX: LOGIKA PAGINATION YANG DINAMIS (Sliding Window)
+  // =========================================================================
   Widget _buildPaginationControls(int currentPage, int totalPages) {
+    // Kita ingin menampilkan 5 halaman sekaligus
+    const int windowSize = 5;
+    
+    // Tentukan halaman awal (startPage)
+    int startPage;
+    
+    if (totalPages <= windowSize) {
+      // Jika total halaman sedikit, mulai dari 1
+      startPage = 1;
+    } else {
+      // Jika halaman banyak, coba posisikan halaman saat ini di tengah
+      // currentPage - 2
+      startPage = currentPage - (windowSize ~/ 2);
+      
+      // Koreksi batas bawah (tidak boleh kurang dari 1)
+      if (startPage < 1) {
+        startPage = 1;
+      }
+      
+      // Koreksi batas atas (jangan sampai startPage + 5 melebihi totalPages)
+      if (startPage + windowSize - 1 > totalPages) {
+        startPage = totalPages - windowSize + 1;
+      }
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -420,39 +404,47 @@ class _HistoryTabState extends State<HistoryTab> {
           color: currentPage > 1 ? Colors.white : Colors.white54,
         ),
         
-        // Page Numbers
-        ...List.generate(totalPages, (index) {
-          final pageNumber = index + 1;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: GestureDetector(
-              onTap: () => _loadPage(pageNumber),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: currentPage == pageNumber 
-                      ? Colors.blue.withOpacity(0.3) 
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: currentPage == pageNumber ? Colors.blue : Colors.white30,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    '$pageNumber',
-                    style: TextStyle(
-                      color: currentPage == pageNumber ? Colors.white : Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+        // Page Numbers (Dinamis berdasarkan startPage)
+        Row(
+          children: List.generate(
+            // Tampilkan jumlah tombol sesuai windowSize atau totalPages jika lebih kecil
+            totalPages > windowSize ? windowSize : totalPages, 
+            (index) {
+              // Ini kuncinya: displayPage bukan index + 1, tapi startPage + index
+              final int displayPage = startPage + index;
+              
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: GestureDetector(
+                  onTap: () => _loadPage(displayPage),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: currentPage == displayPage 
+                          ? Colors.blue.withOpacity(0.3) 
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: currentPage == displayPage ? Colors.blue : Colors.white30,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$displayPage',
+                        style: TextStyle(
+                          color: currentPage == displayPage ? Colors.white : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }),
+              );
+            },
+          ),
+        ),
         
         // Next Button
         IconButton(
@@ -481,58 +473,33 @@ class _HistoryTabState extends State<HistoryTab> {
             flex: 2,
             child: Text(
               timestamp.length > 16 ? timestamp.substring(0, 16) : timestamp,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 10),
             ),
           ),
-          Expanded(
-            child: Text(
-              '$temp °C',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '$hum %',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              press,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              lux,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '$air%',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-              ),
-            ),
-          ),
+          Expanded(child: Text('$temp °C', style: const TextStyle(color: Colors.white, fontSize: 10))),
+          Expanded(child: Text('$hum %', style: const TextStyle(color: Colors.white, fontSize: 10))),
+          Expanded(child: Text(press, style: const TextStyle(color: Colors.white, fontSize: 10))),
+          Expanded(child: Text(lux, style: const TextStyle(color: Colors.white, fontSize: 10))),
+          Expanded(child: Text('$air%', style: const TextStyle(color: Colors.white, fontSize: 10))),
         ],
+      ),
+    );
+  }
+}
+
+// Helper Widgets
+class _HeaderCell extends StatelessWidget {
+  final String text;
+  const _HeaderCell(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white70,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
       ),
     );
   }

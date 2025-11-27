@@ -45,55 +45,58 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Team & Project Overview',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+            // PERBAIKAN: SingleChildScrollView ditambahkan di sini agar bisa scroll ke bawah
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Team & Project Overview',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'IR-64 IoT Team - Innovating for Sustainable Environment',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
+                    const SizedBox(height: 4),
+                    const Text(
+                      'WeatherTech Team - Innovating for Sustainable Environment',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Device Status Card yang disederhanakan
-                  _buildDeviceStatusCard(isOnline),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Team Overview Card
-                  _buildTeamOverviewCard(),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Project Description Card
-                  _buildProjectDescriptionCard(),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Features Card
-                  _buildFeaturesCard(),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // User Info & Logout
-                  _buildUserSection(user),
-                  
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 24),
+                    
+                    // Device Status Card
+                    _buildDeviceStatusCard(isOnline),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Team Overview Card
+                    _buildTeamOverviewCard(),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Project Description Card
+                    _buildProjectDescriptionCard(),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Features Card
+                    _buildFeaturesCard(),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // User Info & Logout
+                    _buildUserSection(user),
+                    
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
@@ -131,7 +134,6 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
           const SizedBox(height: 16),
           
-          // Status Row yang disederhanakan
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -157,7 +159,6 @@ class _ProfileTabState extends State<ProfileTab> {
           const Divider(color: Colors.white24),
           const SizedBox(height: 8),
           
-          // Informasi sederhana
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -247,7 +248,7 @@ class _ProfileTabState extends State<ProfileTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildTeamStat('3', 'Team Members'),
+              _buildTeamStat('4', 'Team Members'),
               _buildTeamStat('5+', 'Technologies'),
               _buildTeamStat('4', 'SDGs Supported'),
             ],
@@ -529,7 +530,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'IR-64 IoT Team Member',
+                      'WeatherTech Team Member',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
