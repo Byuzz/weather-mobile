@@ -15,6 +15,8 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  // Tambahkan PageController
+  late PageController _pageController;
   int _currentIndex = 0;
   
   final List<Widget> _tabs = [
@@ -28,6 +30,9 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    // Inisialisasi PageController
+    _pageController = PageController(initialPage: _currentIndex);
+
     // Initialize data when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
@@ -40,26 +45,54 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
     sensorProvider.stopPolling();
+    // Jangan lupa dispose controller
+    _pageController.dispose();
     super.dispose();
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    extendBody: true,
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF0A1D3C),
-            Color(0xFF152A5E),
-            Color(0xFF1E3A8A),
-          ],
+  // Fungsi saat layar digeser (Swipe)
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  // Fungsi saat tombol navigasi ditekan
+  void _onBottomNavTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    // Pindah halaman dengan animasi
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0A1D3C),
+              Color(0xFF152A5E),
+              Color(0xFF1E3A8A),
+            ],
+          ),
         ),
-      ),
-        child: _tabs[_currentIndex],
+        // GANTI INI: Gunakan PageView agar bisa di-swipe
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          physics: const BouncingScrollPhysics(), // Efek memantul saat mentok
+          children: _tabs,
+        ),
       ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(16),
@@ -75,11 +108,7 @@ Widget build(BuildContext context) {
           borderRadius: BorderRadius.circular(25),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
+            onTap: _onBottomNavTapped, // Panggil fungsi animasi tap
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.transparent,
             elevation: 0,
