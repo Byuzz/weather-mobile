@@ -15,6 +15,40 @@ class _DashboardTabState extends State<DashboardTab> {
   bool _fanLoading = false;
   String _selectedTrendType = 'temperature';
 
+  // --- HELPER: FORMAT TANGGAL RTC (30/11/2025 -> 2025-11-30) ---
+  DateTime? parseRtcTime(String rawTime) {
+    try {
+      // Jika format sudah ISO (YYYY-MM-DD), langsung parse
+      if (rawTime.contains('-')) {
+        return DateTime.parse(rawTime);
+      }
+      
+      // Jika format DD/MM/YYYY HH:MM:SS
+      if (rawTime.contains('/')) {
+        // Pisahkan Tanggal dan Waktu
+        List<String> parts = rawTime.split(' ');
+        if (parts.length == 2) {
+          List<String> dateParts = parts[0].split('/');
+          String timePart = parts[1];
+          
+          if (dateParts.length == 3) {
+            String day = dateParts[0];
+            String month = dateParts[1];
+            String year = dateParts[2];
+            
+            // Susun ulang ke YYYY-MM-DD HH:MM:SS
+            String isoFormat = "$year-$month-$day $timePart";
+            return DateTime.parse(isoFormat);
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error parsing date: $rawTime");
+      return null;
+    }
+  }
+
   Future<void> _controlFan(String action) async {
     setState(() {
       _fanLoading = true;
@@ -31,7 +65,7 @@ class _DashboardTabState extends State<DashboardTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success ? 'Fan set to $action' : 'Failed to control fan',
+            success ? 'Fan turned $action successfully' : 'Failed to control fan',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
@@ -40,7 +74,7 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   // ==========================================
-  // 1. CHART LOGIC (REAL DATA)
+  // CHART LOGIC: Informatif & Interaktif
   // ==========================================
   Widget _buildTrendChart(List<dynamic> trendData, String type) {
     if (trendData.isEmpty) {
@@ -74,19 +108,19 @@ class _DashboardTabState extends State<DashboardTab> {
       }
       spots.add(FlSpot(i.toDouble(), value));
       
-      String rawTime = displayData[i]['timestamp']?.toString() ?? "";
-      if (rawTime.length >= 16) {
-        try {
-           DateTime dt = DateTime.parse(rawTime);
-           timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}");
-        } catch(e) {
-           timeLabels.add("--:--");
-        }
+      // Ambil string waktu (prioritas RTC)
+      String rawTime = displayData[i]['rtc_time']?.toString() ?? displayData[i]['timestamp']?.toString() ?? "";
+      
+      // Gunakan helper parseRtcTime
+      DateTime? dt = parseRtcTime(rawTime);
+      if (dt != null) {
+         timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}");
       } else {
-        timeLabels.add("--:--");
+         timeLabels.add("--:--");
       }
     }
 
+    // Kalkulasi Min/Max Y-Axis Dinamis
     double minY = spots.isNotEmpty ? spots.map((e) => e.y).reduce((a, b) => a < b ? a : b) : 0;
     double maxY = spots.isNotEmpty ? spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) : 10;
     double buffer = (maxY - minY) * 0.2;

@@ -17,6 +17,31 @@ class _HistoryTabState extends State<HistoryTab> {
   // State untuk Dropdown
   String _selectedTrendType = 'temperature'; 
 
+  // --- HELPER: FORMAT TANGGAL RTC ---
+  DateTime? parseRtcTime(String rawTime) {
+    try {
+      if (rawTime.contains('-')) return DateTime.parse(rawTime);
+      if (rawTime.contains('/')) {
+        List<String> parts = rawTime.split(' ');
+        if (parts.length == 2) {
+          List<String> dateParts = parts[0].split('/');
+          String timePart = parts[1];
+          if (dateParts.length == 3) {
+            String day = dateParts[0];
+            String month = dateParts[1];
+            String year = dateParts[2];
+            String isoFormat = "$year-$month-$day $timePart";
+            return DateTime.parse(isoFormat);
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error parsing date: $rawTime");
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -120,7 +145,7 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   // ==========================================
-  // CHART LOGIC UNTUK HISTORY (WITH DROPDOWN)
+  // CHART LOGIC UNTUK HISTORY (WITH DROPDOWN & REAL RTC)
   // ==========================================
   Widget _buildTrendAnalysisCard(List<dynamic> historyData) {
     final trendData = historyData.take(10).toList().reversed.toList();
@@ -141,16 +166,12 @@ class _HistoryTabState extends State<HistoryTab> {
       
       spots.add(FlSpot(i.toDouble(), val));
 
-      String rawTime = data['timestamp']?.toString() ?? "";
-      if (rawTime.length >= 16) {
-        try {
-           DateTime dt = DateTime.parse(rawTime);
-           timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}");
-        } catch(e) {
-           timeLabels.add("--:--");
-        }
+      String rawTime = data['rtc_time']?.toString() ?? data['timestamp']?.toString() ?? "";
+      DateTime? dt = parseRtcTime(rawTime);
+      if (dt != null) {
+         timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}");
       } else {
-        timeLabels.add("--:--");
+         timeLabels.add("--:--");
       }
     }
 
@@ -371,7 +392,9 @@ class _HistoryTabState extends State<HistoryTab> {
                   else
                     Column(
                       children: data.map<Widget>((log) => _buildDataLogRow(
-                        timestamp: log['timestamp']?.toString() ?? '--',
+                        // Gunakan Helper parseRtcTime juga di sini jika mau format lebih rapi
+                        // Tapi untuk list log, string apa adanya juga oke
+                        timestamp: log['rtc_time']?.toString() ?? log['timestamp']?.toString() ?? '--',
                         temp: log['temp']?.toString() ?? '--',
                         hum: log['hum']?.toString() ?? '--',
                         press: log['pres']?.toString() ?? '--',
@@ -458,7 +481,7 @@ class _HistoryTabState extends State<HistoryTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(flex: 2, child: Text(timestamp.length > 16 ? timestamp.substring(0, 16) : timestamp, style: const TextStyle(color: Colors.white, fontSize: 10))),
+          Expanded(flex: 2, child: Text(timestamp.length > 19 ? timestamp.substring(0, 19) : timestamp, style: const TextStyle(color: Colors.white, fontSize: 10))),
           Expanded(child: Text('$temp °C', style: const TextStyle(color: Colors.white, fontSize: 10))),
           Expanded(child: Text('$hum %', style: const TextStyle(color: Colors.white, fontSize: 10))),
           Expanded(child: Text(press, style: const TextStyle(color: Colors.white, fontSize: 10))),
