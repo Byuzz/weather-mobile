@@ -6,6 +6,7 @@ import 'package:weathertech/screens/gps_tab.dart';
 import 'package:weathertech/screens/system_tab.dart';
 import 'package:weathertech/screens/history_tab.dart';
 import 'package:weathertech/screens/profile_tab.dart';
+import 'package:weathertech/screens/controls_tab.dart'; // [BARU] Import Tab Control
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,12 +16,13 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // Tambahkan PageController
   late PageController _pageController;
   int _currentIndex = 0;
   
+  // [BARU] Tambahkan ControlsTab ke dalam List
   final List<Widget> _tabs = [
     const DashboardTab(),
+    const ControlsTab(), // <-- TAB BARU (Index 1)
     const GpsTab(),
     const SystemTab(),
     const HistoryTab(),
@@ -30,10 +32,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi PageController
     _pageController = PageController(initialPage: _currentIndex);
 
-    // Initialize data when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
       sensorProvider.fetchAllData();
@@ -45,24 +45,20 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
     sensorProvider.stopPolling();
-    // Jangan lupa dispose controller
     _pageController.dispose();
     super.dispose();
   }
 
-  // Fungsi saat layar digeser (Swipe)
   void _onPageChanged(int index) {
     setState(() {
       _currentIndex = index;
     });
   }
 
-  // Fungsi saat tombol navigasi ditekan
   void _onBottomNavTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
-    // Pindah halaman dengan animasi
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -86,11 +82,10 @@ class _MainScreenState extends State<MainScreen> {
             ],
           ),
         ),
-        // GANTI INI: Gunakan PageView agar bisa di-swipe
         child: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          physics: const BouncingScrollPhysics(), // Efek memantul saat mentok
+          physics: const BouncingScrollPhysics(),
           children: _tabs,
         ),
       ),
@@ -108,23 +103,28 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: BorderRadius.circular(25),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: _onBottomNavTapped, // Panggil fungsi animasi tap
+            onTap: _onBottomNavTapped,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.transparent,
             elevation: 0,
             selectedItemColor: Colors.white,
             unselectedItemColor: Colors.white70,
             selectedLabelStyle: const TextStyle(
-              fontSize: 12,
+              fontSize: 10, // Ukuran font sedikit dikecilkan agar muat 6 item
               fontWeight: FontWeight.bold,
             ),
             unselectedLabelStyle: const TextStyle(
-              fontSize: 12,
+              fontSize: 10,
             ),
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.dashboard),
-                label: 'Dashboard',
+                label: 'Home',
+              ),
+              // [BARU] ICON CONTROLS
+              BottomNavigationBarItem(
+                icon: Icon(Icons.tune),
+                label: 'Control',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.location_on),

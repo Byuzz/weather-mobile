@@ -8,7 +8,7 @@ class ApiService {
   // Inisialisasi Secure Storage
   static const _storage = FlutterSecureStorage();
   
-  // Auth Methods
+  // --- AUTH METHODS ---
   static Future<Map<String, dynamic>> login(String username, String password) async {
     try {
       final response = await http.post(
@@ -20,15 +20,10 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['token'] != null) {
-          // Ganti SharedPreferences dengan Secure Storage
           await _storage.write(key: 'auth_token', value: data['token']);
-          
-          // Simpan user data sebagai JSON String
           if (data['user'] != null) {
             await _storage.write(key: 'user_data', value: jsonEncode(data['user']));
           }
-          
-          // Simpan status login untuk AuthProvider
           await _storage.write(key: 'is_logged_in', value: 'true');
           await _storage.write(key: 'username', value: username);
         }
@@ -62,82 +57,47 @@ class ApiService {
   }
   
   static Future<void> logout() async {
-    // Hapus semua data session dari Secure Storage
     await _storage.deleteAll();
   }
   
   static Future<String?> getToken() async {
-    // Baca token dari Secure Storage
     return await _storage.read(key: 'auth_token');
   }
   
-  // --- Sensor Data Methods (Tidak berubah, tapi siap untuk header token) ---
-  
+  // --- SENSOR DATA METHODS ---
   static Future<List<dynamic>> getLatestSensorData() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/latest/sensor'),
-      );
-      
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to fetch sensor data');
-      }
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
-    }
+      final response = await http.get(Uri.parse('$baseUrl/api/latest/sensor'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      throw Exception('Failed to fetch sensor data');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
   }
   
   static Future<List<dynamic>> getSensorSystemData() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/latest/sensor_system'),
-      );
-      
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to fetch sensor system data');
-      }
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
-    }
+      final response = await http.get(Uri.parse('$baseUrl/api/latest/sensor_system'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      throw Exception('Failed to fetch sensor system data');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
   }
   
   static Future<List<dynamic>> getGatewaySystemData() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/latest/gateway_system'),
-      );
-      
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to fetch gateway system data');
-      }
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
-    }
+      final response = await http.get(Uri.parse('$baseUrl/api/latest/gateway_system'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      throw Exception('Failed to fetch gateway system data');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
   }
   
   static Future<List<dynamic>> getHistoryData() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/history'),
-      );
-      
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to fetch history data');
-      }
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
-    }
+      final response = await http.get(Uri.parse('$baseUrl/api/history'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      throw Exception('Failed to fetch history data');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
   }
   
-  // Fan Control
+  // --- CONTROL METHODS (FAN & LED) ---
   static Future<Map<String, dynamic>> controlFan(String action) async {
     try {
       final response = await http.post(
@@ -146,14 +106,61 @@ class ApiService {
         body: jsonEncode({'action': action}),
       );
       
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Fan control failed');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
+  }
+
+  static Future<Map<String, dynamic>> controlLed(String action) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/control/led'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'action': action}),
+      );
+      
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'LED control failed');
+    } catch (e) { throw Exception('Network error: ${e.toString()}'); }
+  }
+
+  // ==================================================
+  // [BARU] SETTINGS (THRESHOLD)
+  // ==================================================
+  
+  // 1. Ambil Settingan dari Server
+  static Future<Map<String, dynamic>> getSettings() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/settings'));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
-      } else {
-        final error = jsonDecode(response.body);
-        throw Exception(error['error'] ?? 'Fan control failed');
       }
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
+      throw Exception('Failed to load settings');
+    } catch (e) { 
+      throw Exception('Network error: ${e.toString()}'); 
+    }
+  }
+
+  // 2. Simpan Settingan ke Server
+  static Future<Map<String, dynamic>> updateSettings(double fan, double led) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/settings'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'fan': fan,
+          'led': led
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Failed to save settings');
+    } catch (e) { 
+      throw Exception('Network error: ${e.toString()}'); 
     }
   }
 }

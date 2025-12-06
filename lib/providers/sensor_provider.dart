@@ -12,7 +12,12 @@ class SensorProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   Timer? _pollingTimer;
-  DateTime? _lastFetchTime; // Ganti nama biar tidak bingung
+  DateTime? _lastFetchTime;
+  
+  // [BARU] Variabel Settings
+  double _fanThreshold = 30.0;
+  double _ledThreshold = 20.0;
+  bool _isSaving = false;
   
   // Getters
   List<dynamic> get sensorData => _sensorData;
@@ -24,57 +29,38 @@ class SensorProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   
-  // =================================================================
-  // PERBAIKAN LOGIKA ONLINE/OFFLINE (Adaptasi sensors.js)
-  // =================================================================
+  // [BARU] Getters Settings
+  double get fanThreshold => _fanThreshold;
+  double get ledThreshold => _ledThreshold;
+  bool get isSaving => _isSaving;
+  
+  // LOGIKA ONLINE/OFFLINE
   bool get isDeviceOnline {
-    // 1. Cek apakah ada data sensor
     if (_sensorData.isEmpty) return false;
-
     try {
       final latest = _sensorData.first;
-      
-      // 2. Ambil timestamp dari data database
       if (latest['timestamp'] == null) return false;
-      
-      // Parsing String timestamp ke DateTime
-      // Pastikan format di DB kompatibel (ISO8601 recommended)
       final dataTime = DateTime.parse(latest['timestamp'].toString());
-      
-      // 3. Ambil waktu sekarang
       final now = DateTime.now();
-      
-      // 4. Hitung selisih dalam detik (Sama seperti sensors.js)
-      // Gunakan .abs() untuk menghindari masalah timezone selisih negatif
       final diffSeconds = now.difference(dataTime).inSeconds.abs();
-      
-      // 5. Vonis: Jika selisih < 60 detik (atau 70 biar aman), dianggap ONLINE
       return diffSeconds <= 70; 
-
     } catch (e) {
-      debugPrint("Error parsing date for online check: $e");
       return false;
     }
   }
   
-  // Helper untuk mendapatkan text "Last seen"
   String get lastSeenText {
     if (_sensorData.isEmpty || _sensorData.first['timestamp'] == null) return "Never";
     try {
       final dataTime = DateTime.parse(_sensorData.first['timestamp'].toString());
-      // Format sederhana jam:menit:detik
       return "${dataTime.hour.toString().padLeft(2, '0')}:${dataTime.minute.toString().padLeft(2, '0')}:${dataTime.second.toString().padLeft(2, '0')}";
     } catch (e) {
       return "--:--:--";
     }
   }
 
-  // ... (Sisa kode ke bawah sama, hanya update _lastFetchTime) ...
-
   Map<String, dynamic>? get latestSensor {
-    if (_sensorData.isNotEmpty) {
-      return _sensorData.first;
-    }
+    if (_sensorData.isNotEmpty) return _sensorData.first;
     return null;
   }
   
@@ -91,18 +77,26 @@ class SensorProvider extends ChangeNotifier {
     return null;
   }
 
+  // --- FETCHING DATA ---
+
+  Future<void> fetchSensorData() async {
+    try {
+      _sensorData = await ApiService.getLatestSensorData();
+      _lastFetchTime = DateTime.now(); 
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchTrendData() async {
     try {
-      _isLoading = true;
-      notifyListeners();
       final history = await ApiService.getHistoryData();
       _trendData = history.take(10).toList();
-      _error = null;
+      notifyListeners();
     } catch (e) {
       _error = 'Failed to fetch trend data: $e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
@@ -130,7 +124,6 @@ class SensorProvider extends ChangeNotifier {
         'hasNext': page < totalPages,
         'hasPrev': page > 1,
       };
-      _error = null;
     } catch (e) {
       _error = 'Failed to fetch history data: $e';
     } finally {
@@ -144,6 +137,9 @@ class SensorProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
+      // [UPDATE] Fetch Settings juga di awal
+      await fetchSettings();
+      
       final results = await Future.wait([
         ApiService.getLatestSensorData(),
         ApiService.getSensorSystemData(),
@@ -167,17 +163,6 @@ class SensorProvider extends ChangeNotifier {
     }
   }
   
-  Future<void> fetchSensorData() async {
-    try {
-      _sensorData = await ApiService.getLatestSensorData();
-      _lastFetchTime = DateTime.now(); 
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-  
   Future<void> fetchSystemData() async {
     try {
       final results = await Future.wait([
@@ -195,6 +180,8 @@ class SensorProvider extends ChangeNotifier {
     }
   }
   
+  // --- CONTROLS ---
+
   Future<bool> controlFan(String action) async {
     try {
       final response = await ApiService.controlFan(action);
@@ -209,12 +196,61 @@ class SensorProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> controlLed(String action) async {
+    try {
+      final response = await ApiService.controlLed(action);
+      notifyListeners();
+      return response['status'] == 'success';
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ==================================================
+  // [BARU] SETTINGS LOGIC
+  // ==================================================
   
+  Future<void> fetchSettings() async {
+    try {
+      final data = await ApiService.getSettings();
+      _fanThreshold = double.tryParse(data['fan'].toString()) ?? 30.0;
+      _ledThreshold = double.tryParse(data['led'].toString()) ?? 20.0;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching settings: $e");
+    }
+  }
+
+  Future<bool> saveSettings(double newFan, double newLed) async {
+    _isSaving = true;
+    notifyListeners();
+    try {
+      final response = await ApiService.updateSettings(newFan, newLed);
+      if (response['status'] == 'success') {
+        _fanThreshold = newFan;
+        _ledThreshold = newLed;
+        _isSaving = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      _error = "Gagal menyimpan setting: $e";
+    }
+    _isSaving = false;
+    notifyListeners();
+    return false;
+  }
+  
+  // --- POLLING ---
+
   void startPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) { // Dipercepat jadi 4 detik sesuai web
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) { 
       fetchSensorData();
-      if (timer.tick % 3 == 0) {
+      if (timer.tick % 3 == 0) { 
         fetchTrendData();
       }
     });

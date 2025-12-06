@@ -12,20 +12,17 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  bool _fanLoading = false;
+  // State untuk Dropdown Chart
   String _selectedTrendType = 'temperature';
 
-  // ==========================================
-  // HELPER FUNCTIONS
-  // ==========================================
+  // =================================================================
+  // A. HELPER FUNCTIONS
+  // =================================================================
 
-  // 1. Parse Tanggal dari format RTC (dd/MM/yyyy HH:mm:ss) atau ISO
+  // 1. Parsing Tanggal dari format RTC atau ISO
   DateTime? parseRtcTime(String rawTime) {
     try {
-      // Jika format ISO (2025-11-30)
       if (rawTime.contains('-')) return DateTime.parse(rawTime);
-      
-      // Jika format RTC (30/11/2025)
       if (rawTime.contains('/')) {
         List<String> parts = rawTime.split(' ');
         if (parts.length == 2) {
@@ -35,7 +32,6 @@ class _DashboardTabState extends State<DashboardTab> {
             String day = dateParts[0];
             String month = dateParts[1];
             String year = dateParts[2];
-            // Ubah ke format yang bisa dibaca DateTime.parse
             String isoFormat = "$year-$month-$day $timePart";
             return DateTime.parse(isoFormat);
           }
@@ -47,20 +43,19 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
   
-  // 2. Format Jam Saja (HH:mm:ss) untuk tampilan singkat
+  // 2. Format Jam Saja (HH:mm:ss)
   String _formatTimeOnly(String rawTime) {
     DateTime? dt = parseRtcTime(rawTime);
     if (dt != null) {
       return "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}:${dt.second.toString().padLeft(2,'0')}";
     }
-    // Fallback ambil kata terakhir jika gagal parse
     if (rawTime.length > 10 && rawTime.contains(' ')) {
        return rawTime.split(' ').last;
     }
     return rawTime; 
   }
 
-  // 3. Hitung Min/Max dari Data History (Trend)
+  // 3. Hitung Min/Max Data
   String _calculateMinMax(List<dynamic> trendData, String key, String unit) {
     if (trendData.isEmpty) return 'Min: -- Max: --';
     
@@ -68,7 +63,7 @@ class _DashboardTabState extends State<DashboardTab> {
     for (var item in trendData) {
       if (item[key] != null) {
         double? val = double.tryParse(item[key].toString());
-        if (val != null && val != 0) { // Abaikan 0 jika dianggap error
+        if (val != null && val != 0) { 
           values.add(val);
         }
       }
@@ -76,36 +71,16 @@ class _DashboardTabState extends State<DashboardTab> {
 
     if (values.isEmpty) return 'Min: -- Max: --';
 
-    values.sort(); // Urutkan
+    values.sort();
     double min = values.first;
     double max = values.last;
 
     return 'Min: ${min.toStringAsFixed(1)}$unit  Max: ${max.toStringAsFixed(1)}$unit';
   }
 
-  // ==========================================
-  // LOGIC ACTIONS
-  // ==========================================
-
-  Future<void> _controlFan(String action) async {
-    setState(() { _fanLoading = true; });
-    final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
-    final success = await sensorProvider.controlFan(action);
-    setState(() { _fanLoading = false; });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Fan set to $action' : 'Failed to control fan'),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
-      );
-    }
-  }
-
-  // ==========================================
-  // UI BUILDER
-  // ==========================================
+  // =================================================================
+  // B. MAIN UI BUILDER
+  // =================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -135,22 +110,22 @@ class _DashboardTabState extends State<DashboardTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Header (Waktu RTC)
+                    // 1. HEADER
                     _buildHeader(isOnline),
                     
                     const SizedBox(height: 24),
                     
-                    // 2. Chart (Dropdown + Grafik Lengkap)
+                    // 2. CHART (Trend Analysis)
                     _buildTrendAnalysisCard(trendData, isOnline),
                     
                     const SizedBox(height: 16),
                     
-                    // 3. Light Intensity
+                    // 3. LIGHT INTENSITY CARD
                     _buildLightIntensityCard(latestData?['lux'], isOnline),
                     
                     const SizedBox(height: 16),
                     
-                    // 4. Grid Sensor (Data Real Min/Max)
+                    // 4. SENSOR GRID
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -166,7 +141,6 @@ class _DashboardTabState extends State<DashboardTab> {
                           color: Colors.blue, 
                           isOnline: isOnline
                         ),
-                        
                         _buildSensorCard(
                           icon: FontAwesomeIcons.weightHanging, 
                           title: 'Pressure', 
@@ -175,7 +149,6 @@ class _DashboardTabState extends State<DashboardTab> {
                           color: Colors.green, 
                           isOnline: isOnline
                         ),
-                        
                         _buildSensorCard(
                           icon: FontAwesomeIcons.temperatureHalf, 
                           title: 'Temperature', 
@@ -184,20 +157,14 @@ class _DashboardTabState extends State<DashboardTab> {
                           color: Colors.orange, 
                           isOnline: isOnline
                         ),
-                        
                         _buildAirQualitySmallCard(latestData?['air_clean_perc'], isOnline),
                       ],
                     ),
                     
                     const SizedBox(height: 16),
                     
-                    // 5. System Status (Data Real RTC & Count)
+                    // 5. SYSTEM STATUS
                     _buildSystemStatusCard(latestData, isOnline),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // 6. Fan Control (ON/AUTO/OFF)
-                    _buildFanControlCard(isOnline),
                     
                     const SizedBox(height: 20),
                   ],
@@ -210,9 +177,9 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // ==========================================
-  // WIDGET COMPONENTS
-  // ==========================================
+  // =================================================================
+  // C. WIDGET COMPONENTS
+  // =================================================================
 
   Widget _buildHeader(bool isOnline) {
     final sensorProvider = Provider.of<SensorProvider>(context, listen: false);
@@ -223,7 +190,6 @@ class _DashboardTabState extends State<DashboardTab> {
     
     String timeDisplay = "--:--:--";
     if (latestData != null) {
-        // Ambil RTC jika ada, fallback ke timestamp server
         String rawTime = latestData['rtc_time']?.toString() ?? latestData['timestamp']?.toString() ?? "";
         timeDisplay = _formatTimeOnly(rawTime);
     }
@@ -232,11 +198,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: statusColor.withOpacity(0.3))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -261,7 +223,6 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // --- CHART WIDGET ---
   Widget _buildTrendAnalysisCard(List<dynamic> trendData, bool isOnline) {
     return Opacity(
       opacity: isOnline ? 1.0 : 0.6,
@@ -275,7 +236,6 @@ class _DashboardTabState extends State<DashboardTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Chart + Dropdown
             Row(
               children: [
                 const Icon(Icons.trending_up, color: Colors.white, size: 20),
@@ -304,13 +264,8 @@ class _DashboardTabState extends State<DashboardTab> {
               ],
             ),
             const SizedBox(height: 16),
-            
-            // Render Grafik
             _buildTrendChart(trendData, _selectedTrendType),
-            
             const SizedBox(height: 8),
-            
-            // Footer Grafik
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(_getTrendTitle(_selectedTrendType), style: const TextStyle(color: Colors.white70, fontSize: 12)), 
               Row(children: [
@@ -325,20 +280,13 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // --- CHART IMPLEMENTATION ---
   Widget _buildTrendChart(List<dynamic> trendData, String type) {
     if (trendData.isEmpty) {
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
-        child: const Center(child: Text('No trend data available', style: TextStyle(color: Colors.white54))),
-      );
+      return Container(height: 200, decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)), child: const Center(child: Text('No trend data available', style: TextStyle(color: Colors.white54))));
     }
-
     final displayData = trendData.take(10).toList().reversed.toList();
     List<FlSpot> spots = [];
     List<String> timeLabels = [];
-
     for (int i = 0; i < displayData.length; i++) {
       double value = 0.0;
       switch (type) {
@@ -349,16 +297,10 @@ class _DashboardTabState extends State<DashboardTab> {
         case 'light': value = displayData[i]['lux']?.toDouble() ?? 0.0; break;
       }
       spots.add(FlSpot(i.toDouble(), value));
-      
       String rawTime = displayData[i]['rtc_time']?.toString() ?? displayData[i]['timestamp']?.toString() ?? "";
       DateTime? dt = parseRtcTime(rawTime);
-      if (dt != null) {
-         timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}");
-      } else {
-         timeLabels.add("--:--");
-      }
+      if (dt != null) { timeLabels.add("${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}"); } else { timeLabels.add("--:--"); }
     }
-
     double minY = spots.isNotEmpty ? spots.map((e) => e.y).reduce((a, b) => a < b ? a : b) : 0;
     double maxY = spots.isNotEmpty ? spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) : 10;
     double buffer = (maxY - minY) * 0.2;
@@ -381,9 +323,7 @@ class _DashboardTabState extends State<DashboardTab> {
             bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 1, getTitlesWidget: (value, meta) {
               int index = value.toInt();
               if (index >= 0 && index < timeLabels.length) {
-                if (index % 2 == 0 || index == timeLabels.length - 1) { // Show alternate labels
-                  return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(timeLabels[index], style: const TextStyle(color: Colors.white54, fontSize: 10)));
-                }
+                if (index % 2 == 0 || index == timeLabels.length - 1) { return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(timeLabels[index], style: const TextStyle(color: Colors.white54, fontSize: 10))); }
               }
               return const SizedBox();
             })),
@@ -420,7 +360,23 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // --- SENSOR CARDS ---
+  Widget _buildLightIntensityCard(dynamic luxValue, bool isOnline) {
+    return Opacity(
+      opacity: isOnline ? 1.0 : 0.6,
+      child: Container(
+        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.amber.withOpacity(0.15), Colors.orange.withOpacity(0.1)]), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1)),
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.lightbulb, color: Colors.amber, size: 24)), const SizedBox(width: 12), const Text('Light Intensity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))]),
+            const SizedBox(height: 16),
+            Center(child: Text(isOnline ? (luxValue != null ? '$luxValue lux' : '-- lux') : '-- lux', style: TextStyle(color: isOnline ? Colors.amber : Colors.amber.withOpacity(0.5), fontSize: 32, fontWeight: FontWeight.bold))),
+            const SizedBox(height: 8),
+            if (isOnline) Consumer<SensorProvider>(builder: (context, sensorProvider, child) { final recentLightData = sensorProvider.trendData.where((data) => data['lux'] != null).take(10).map((data) => data['lux'].toString()).toList(); return Wrap(spacing: 8, children: recentLightData.map((value) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text(value, style: const TextStyle(color: Colors.white70, fontSize: 12)))).toList()); }) else const Text('Device Offline - No recent data', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          ]),
+      ),
+    );
+  }
+
   Widget _buildSensorCard({required IconData icon, required String title, required String value, required String minMax, required Color color, required bool isOnline}) {
     return Opacity(
       opacity: isOnline ? 1.0 : 0.6,
@@ -459,7 +415,6 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  // --- SYSTEM STATUS (DATA REAL) ---
   Widget _buildSystemStatusCard(Map<String, dynamic>? data, bool isOnline) {
     String rtcTime = '--';
     String dataCount = '--';
@@ -490,49 +445,5 @@ class _DashboardTabState extends State<DashboardTab> {
 
   Widget _buildSystemInfo(String label, String value, bool isOnline) {
     return Column(children: [Text(label, style: TextStyle(color: isOnline ? Colors.white70 : Colors.white38, fontSize: 12)), const SizedBox(height: 4), Text(value, style: TextStyle(color: isOnline ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold))]);
-  }
-
-  // --- FAN CONTROL (3 TOMBOL) ---
-  Widget _buildFanControlCard(bool isOnline) {
-    return Opacity(
-      opacity: isOnline ? 1.0 : 0.6,
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.1))),
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.purple.withOpacity(isOnline ? 0.2 : 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(FontAwesomeIcons.fan, size: 20, color: isOnline ? Colors.purple : Colors.grey)), const SizedBox(width: 8), Text('Fan Control', style: TextStyle(color: isOnline ? Colors.white : Colors.white54, fontSize: 16, fontWeight: FontWeight.bold))]),
-            const SizedBox(height: 16),
-            if (_fanLoading) const Center(child: CircularProgressIndicator(color: Colors.white)) else Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(child: _buildFanButton(text: 'ON', color: Colors.green, action: 'ON', isOnline: isOnline, icon: Icons.power_settings_new)), 
-              const SizedBox(width: 8), 
-              Expanded(child: _buildFanButton(text: 'AUTO', color: Colors.blue, action: 'AUTO', isOnline: isOnline, icon: Icons.hdr_auto)), 
-              const SizedBox(width: 8), 
-              Expanded(child: _buildFanButton(text: 'OFF', color: Colors.red, action: 'OFF', isOnline: isOnline, icon: Icons.power_off))
-            ]),
-          ]),
-      ),
-    );
-  }
-
-  Widget _buildFanButton({required String text, required Color color, required String action, required bool isOnline, required IconData icon}) {
-    return SizedBox(width: 120, height: 45, child: ElevatedButton(onPressed: isOnline ? () => _controlFan(action) : null, style: ElevatedButton.styleFrom(backgroundColor: isOnline ? color.withOpacity(0.2) : color.withOpacity(0.1), foregroundColor: color, elevation: 0, padding: EdgeInsets.zero, side: BorderSide(color: isOnline ? color : color.withOpacity(0.3)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 18), const SizedBox(height: 2), Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))])));
-  }
-
-  // --- LIGHT CARD ---
-  Widget _buildLightIntensityCard(dynamic luxValue, bool isOnline) {
-    return Opacity(
-      opacity: isOnline ? 1.0 : 0.6,
-      child: Container(
-        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.amber.withOpacity(0.15), Colors.orange.withOpacity(0.1)]), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1)),
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.lightbulb, color: Colors.amber, size: 24)), const SizedBox(width: 12), const Text('Light Intensity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))]),
-            const SizedBox(height: 16),
-            Center(child: Text(isOnline ? (luxValue != null ? '$luxValue lux' : '-- lux') : '-- lux', style: TextStyle(color: isOnline ? Colors.amber : Colors.amber.withOpacity(0.5), fontSize: 32, fontWeight: FontWeight.bold))),
-            const SizedBox(height: 8),
-            if (isOnline) Consumer<SensorProvider>(builder: (context, sensorProvider, child) { final recentLightData = sensorProvider.trendData.where((data) => data['lux'] != null).take(10).map((data) => data['lux'].toString()).toList(); return Wrap(spacing: 8, children: recentLightData.map((value) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: Text(value, style: const TextStyle(color: Colors.white70, fontSize: 12)))).toList()); }) else const Text('Device Offline - No recent data', style: TextStyle(color: Colors.white54, fontSize: 12)),
-          ]),
-      ),
-    );
   }
 }
